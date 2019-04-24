@@ -125,7 +125,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch Service Resources
 	err = c.Watch(
 		&source.Informer{Informer: kubeInformerFactory.Core().V1().Services().Informer()},
 		&handler.EnqueueRequestForObject{},
@@ -169,9 +168,6 @@ type ReconcileTraffic struct {
 
 // Reconcile reads that state of the cluster for a Traffic object and makes changes based on the state read
 // and what is in the Traffic.Spec
-// Automatically generate RBAC rules to allow the Controller to read and write Deployments
-// +kubebuilder:rbac:groups=apps,resources=services,verbs=get;list;watch
-// +kubebuilder:rbac:groups=apps,resources=endpoints,verbs=get;list;watch
 func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	namespace := r.Configuration.Namespace
 	service := r.Configuration.Service
