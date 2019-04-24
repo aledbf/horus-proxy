@@ -24,7 +24,7 @@ local function format_ipv6_endpoints(endpoints)
 end
 
 local function sync_backend(backend)
-  if not backend or #backend == 0 then
+  if not backend.endpoints or #backend.endpoints == 0 then
     ngx.log(ngx.INFO, string.format("there is no endpoint for backend %s. Removing...", backend.name))
     balancers[backend.name] = nil
     return
@@ -56,6 +56,8 @@ local function sync_backends()
     return
   end
 
+  ngx.log(ngx.ERR, "new_backends: " .. tostring(backends_data))
+
   local balancers_to_keep = {}
   for _, new_backend in ipairs(new_backends) do
     sync_backend(new_backend)
@@ -69,19 +71,27 @@ local function sync_backends()
   end
 end
 
-local function get_balancer()
+local function wait_for_balancer()
   local backend_name = ngx.var.proxy_upstream_name
 
   local balancer
   -- wait up to 5 minutes
-  local wait_for_balancer = true
-  while wait_for_balancer do
+  while true do
     balancer = balancers[backend_name]
     if not balancer then
+      ngx.log(ngx.ERR, "not upstream servers available in %s", backend_name)
       ngx.sleep(5)
     else
       break
     end
+  end
+end
+
+local function get_balancer()
+  local backend_name = ngx.var.proxy_upstream_name
+  local balancer = balancers[backend_name]
+  if not balancer then
+    return
   end
 
   return balancer
@@ -138,6 +148,10 @@ end
 
 if _TEST then
   _M.sync_backend = sync_backend
+end
+
+function _M.wait_for_balancer()
+  wait_for_balancer()
 end
 
 return _M

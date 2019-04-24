@@ -81,6 +81,8 @@ http {
     proxy_send_timeout              0;
     proxy_read_timeout              0;
 
+    access_log  /usr/local/openresty/nginx/logs/access.log;
+
     upstream upstream_balancer {
         server 0.0.0.1; # placeholder
 
@@ -99,6 +101,11 @@ http {
         set $proxy_upstream_name "{{ $server.Name }}";
     
         location / {
+                
+            access_by_lua_block {
+                balancer.wait_for_balancer()
+            }
+
             proxy_pass            http://upstream_balancer;
         }
     }
