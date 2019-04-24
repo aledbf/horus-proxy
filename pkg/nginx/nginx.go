@@ -101,8 +101,7 @@ func (ngx *nginx) Update(cfg *Configuration) error {
 
 	log.Info("updating dynamic configuration")
 	err = wait.ExponentialBackoff(retry, func() (bool, error) {
-		luaCfg := nginxToLUA(cfg)
-		statusCode, _, err := newPostStatusRequest("/configuration/backends", luaCfg)
+		statusCode, _, err := newPostStatusRequest("/configuration/backends", cfg.Servers)
 		if err != nil {
 			return false, err
 		}
@@ -179,25 +178,14 @@ func reloadIfRequired(data []byte) error {
 	}
 
 	log.Info("reloading nginx")
-	cmd := exec.Command(DefaultNGINXBinary, "-c", cfgPath, "-s", "reload")
+	cmd := nginxExecCommand("-s", "reload")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
 	err = cmd.Run()
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// nginxToLUA converts an NGINX configuration to the format used in the lua
-// balancer. The balancer expects an object where the keys is the name of the
-// upstream and the value an array with endoint information
-func nginxToLUA(cfg *Configuration) map[string]interface{} {
-	luaCfg := make(map[string]interface{}, len(cfg.Servers))
-	for _, server := range cfg.Servers {
-		luaCfg[server.Name] = server.Upstreams
-	}
-
-	return luaCfg
 }

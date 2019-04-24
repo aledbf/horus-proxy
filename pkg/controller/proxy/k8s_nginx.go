@@ -11,7 +11,7 @@ func kubeToNGINX(svc *corev1.Service, endpoints *corev1.Endpoints) *nginx.Config
 	servers := make([]nginx.Server, 0)
 
 	for _, service := range svc.Spec.Ports {
-		upstreams := []nginx.Upstream{}
+		upstreams := []nginx.Endpoint{}
 
 		for i := range endpoints.Subsets {
 			ss := &endpoints.Subsets[i]
@@ -36,9 +36,9 @@ func kubeToNGINX(svc *corev1.Service, endpoints *corev1.Endpoints) *nginx.Config
 
 				for i := range ss.Addresses {
 					epAddress := &ss.Addresses[i]
-					ups := nginx.Upstream{
+					ups := nginx.Endpoint{
 						Address: epAddress.IP,
-						Port:    int(targetPort),
+						Port:    fmt.Sprintf("%v", targetPort),
 					}
 
 					upstreams = append(upstreams, ups)
@@ -49,8 +49,8 @@ func kubeToNGINX(svc *corev1.Service, endpoints *corev1.Endpoints) *nginx.Config
 
 		servers = append(servers, nginx.Server{
 			Name:      fmt.Sprintf("%v-%v-%v", svc.Namespace, svc.Name, service.TargetPort.String()),
-			Port:      int(service.TargetPort.IntValue()),
-			Upstreams: upstreams,
+			Port:      service.TargetPort.String(),
+			Endpoints: upstreams,
 		})
 	}
 

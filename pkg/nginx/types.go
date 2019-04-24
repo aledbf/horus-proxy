@@ -1,15 +1,15 @@
 package nginx
 
-type Upstream struct {
+type Endpoint struct {
 	Address string `json:"address,omitempty"`
-	Port    int    `json:"port,omitempty"`
+	Port    string `json:"port,omitempty"`
 }
 
 // Server defines an NGINX server section
 type Server struct {
 	Name      string     `json:"name,omitempty"`
-	Port      int        `json:"port,omitempty"`
-	Upstreams []Upstream `json:"upstreams,omitempty"`
+	Port      string     `json:"port,omitempty"`
+	Endpoints []Endpoint `json:"endpoints,omitempty"`
 }
 
 // Configuration defines an NGINX configuration
