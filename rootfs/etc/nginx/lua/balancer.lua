@@ -8,6 +8,9 @@ local round_robin = require("balancer.round_robin")
 -- it will take <the delay until controller POSTed the backend object to the Nginx endpoint> + BACKENDS_SYNC_INTERVAL
 local BACKENDS_SYNC_INTERVAL = 1
 
+local waiting_for_endpoints = true
+local last_request_timestamp = ngx.now()
+
 local _M = {}
 local balancers = {}
 
@@ -77,9 +80,11 @@ local function wait_for_balancer()
   while true do
     balancer = balancers[backend_name]
     if not balancer then
+      waiting_for_endpoints = true
       ngx.log(ngx.ERR, "not upstream servers available in ", backend_name)
       ngx.sleep(5)
     else
+      waiting_for_endpoints = false
       break
     end
   end
@@ -132,6 +137,8 @@ function _M.balance()
 end
 
 function _M.log()
+  last_request_timestamp = ngx.now()
+
   local balancer = get_balancer()
   if not balancer then
     return
@@ -142,6 +149,15 @@ function _M.log()
   end
 
   balancer:after_balance()
+end
+
+function _M.status()
+  local sedonds_from_last_request = math.ceil(ngx.now() - last_request_timestamp)
+
+  ngx.status = ngx.HTTP_OK
+  ngx.header.content_type = "application/json"
+  ngx.say(cjson.encode({ lastRequest=sedonds_from_last_request .. "s", waitingForEndpoint=waiting_for_endpoints}))
+  return ngx.exit(ngx.HTTP_OK)
 end
 
 if _TEST then

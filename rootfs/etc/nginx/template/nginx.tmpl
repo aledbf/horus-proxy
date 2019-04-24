@@ -1,12 +1,12 @@
-pid /tmp/nginx.pid;
-daemon off;
+pid                                 /tmp/nginx.pid;
+daemon                              off;
 
-worker_processes 1;
-worker_shutdown_timeout 60s;
+worker_processes                    1;
+worker_shutdown_timeout             60s;
 
 events {
-    multi_accept        on;
-    worker_connections  1024;
+    multi_accept                    on;
+    worker_connections              1024;
 }
 
 http {
@@ -24,29 +24,21 @@ http {
 
         ok, res = pcall(require, "configuration")
         if not ok then
-          error("require failed: " .. tostring(res))
+            error("require failed: " .. tostring(res))
         else
-          configuration = res
+            configuration = res
         end
 
         ok, res = pcall(require, "balancer")
         if not ok then
-          error("require failed: " .. tostring(res))
+            error("require failed: " .. tostring(res))
         else
-          balancer = res
+            balancer = res
         end
-
-        --- ok, res = pcall(require, "monitor")
-        --- if not ok then
-        ---   error("require failed: " .. tostring(res))
-        --- else
-        ---   monitor = res
-        --- end
     }
 
     init_worker_by_lua_block {
         balancer.init_worker()
-        --- monitor.init_worker()
     }
 
     tcp_nopush                      on;
@@ -109,8 +101,13 @@ http {
                 balancer.wait_for_balancer()
             }
 
+            log_by_lua_block {
+                balancer.log()
+            }
+
             proxy_pass            http://upstream_balancer;
         }
+
     }
     {{ end }}
 
@@ -143,7 +140,13 @@ http {
 
         location /configuration {
             content_by_lua_block {
-              configuration.call()
+                configuration.call()
+            }
+        }
+
+        location /status {
+            content_by_lua_block {
+                balancer.status()
             }
         }
 
