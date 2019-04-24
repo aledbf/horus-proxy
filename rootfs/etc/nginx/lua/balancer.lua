@@ -160,6 +160,13 @@ function _M.status()
   return ngx.exit(ngx.HTTP_OK)
 end
 
+function _M.not_found()
+  ngx.status = ngx.HTTP_NOT_FOUND
+  ngx.header.content_type = "application/json"
+  ngx.say('{"error":"Not Found"}')
+  return ngx.exit(ngx.HTTP_NOT_FOUND)
+end
+
 if _TEST then
   _M.sync_backend = sync_backend
 end
