@@ -55,15 +55,11 @@ spec:
   selector:
     matchLabels:
       app: http-svc-proxy
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
-    type: RollingUpdate
   template:
     metadata:
       labels:
         app: http-svc-proxy
+        kind: horus-proxy
     spec:
       serviceAccountName: http-svc-proxy
       containers:
