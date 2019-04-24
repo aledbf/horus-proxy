@@ -13,11 +13,14 @@ http {
     lua_package_cpath "/usr/local/lib/lua/?.so;/usr/lib/lua-platform-path/lua/5.1/?.so;;";
     lua_package_path "/etc/nginx/lua/?.lua;/etc/nginx/lua/vendor/?.lua;/usr/local/lib/lua/?.lua;;";
 
-    lua_shared_dict configuration_data 5M;
+    lua_shared_dict configuration_data 1M;
+    lua_shared_dict prometheus_metrics 2M;
 
     init_by_lua_block {
         require("resty.core")
         collectgarbage("collect")
+
+        prometheus = require("prometheus").init("prometheus_metrics")
 
         -- init modules
         local ok, res
@@ -34,6 +37,13 @@ http {
             error("require failed: " .. tostring(res))
         else
             balancer = res
+        end
+
+        ok, res = pcall(require, "metrics")
+        if not ok then
+            error("require failed: " .. tostring(res))
+        else
+            metrics = res
         end
     }
 
@@ -103,6 +113,7 @@ http {
 
             log_by_lua_block {
                 balancer.log()
+                metrics.log()
             }
 
             proxy_pass            http://upstream_balancer;
@@ -135,9 +146,9 @@ http {
             }
         }
 
-        location /status {
+        location /metrics {
             content_by_lua_block {
-                balancer.status()
+                metrics.collect()
             }
         }
 

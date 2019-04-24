@@ -7,6 +7,17 @@ local _M = {
   nameservers = {}
 }
 
+function _M.get_waiting_for_endpoints()
+  return configuration_data:get("waiting_for_endpoints")
+end
+
+function _M.get_waiting_for_endpoints(waiting)
+  local success, err = configuration_data:safe_set("waiting_for_endpoints", waiting)
+  if not success then
+    ngx.log(ngx.ERR, "error setting general config: " .. tostring(err))
+  end
+end
+
 function _M.get_backends_data()
   return configuration_data:get("backends")
 end
