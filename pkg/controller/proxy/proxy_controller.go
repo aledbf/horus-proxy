@@ -1,0 +1,207 @@
+/*
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package proxy
+
+import (
+	"fmt"
+	"time"
+
+	"k8s.io/client-go/tools/record"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	listerscorev1 "k8s.io/client-go/listers/core/v1"
+	apiscore "k8s.io/kubernetes/pkg/apis/core"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/aledbf/horus-proxy/pkg/env"
+	"github.com/aledbf/horus-proxy/pkg/nginx"
+)
+
+var log = logf.Log.WithName("controller")
+
+// Add creates a new Traffic Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(mgr manager.Manager) error {
+	return add(mgr, newReconciler(mgr))
+}
+
+// newReconciler returns a new reconcile.Reconciler
+func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	return &ReconcileTraffic{
+		Client:   mgr.GetClient(),
+		scheme:   mgr.GetScheme(),
+		recorder: mgr.GetRecorder("proxy-controller"),
+	}
+}
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	// Inject dependencies into Reconciler
+	if err := mgr.SetFields(r); err != nil {
+		return err
+	}
+
+	ngx, err := nginx.NewInstance(nginx.DefaultTemplate)
+	if err != nil {
+		return err
+	}
+
+	// Create a new controller
+	c, err := controller.New("proxy-controller", mgr, controller.Options{Reconciler: r})
+	if err != nil {
+		return err
+	}
+
+	log.Info("Checking environment variables...")
+	config, err := env.Parse()
+	if err != nil {
+		return err
+	}
+
+	kubeclient := kubernetes.NewForConfigOrDie(mgr.GetConfig())
+
+	log.Info("Checking service and namespace...", "service", config.Service, "namespace", config.Namespace)
+	_, err = kubeclient.CoreV1().Namespaces().Get(config.Namespace, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	_, err = kubeclient.CoreV1().Services(config.Namespace).Get(config.Service, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+		log.Info("Starting nginx process")
+		err := ngx.Start(s)
+		if err != nil {
+			return err
+		}
+
+		<-s
+		return nil
+	}))
+	if err != nil {
+		return err
+	}
+
+	kubeInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeclient, 10*time.Minute, config.Namespace,
+		func(options *metav1.ListOptions) {
+			options.FieldSelector = fields.OneTermEqualSelector(apiscore.ObjectNameField, config.Service).String()
+		},
+	)
+
+	// Instruct the manager to start the informers
+	err = mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+		kubeInformerFactory.Start(s)
+		<-s
+		return nil
+	}))
+	if err != nil {
+		return err
+	}
+
+	// Watch Service Resources
+	err = c.Watch(
+		&source.Informer{Informer: kubeInformerFactory.Core().V1().Services().Informer()},
+		&handler.EnqueueRequestForObject{},
+	)
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(
+		&source.Informer{Informer: kubeInformerFactory.Core().V1().Endpoints().Informer()},
+		&handler.EnqueueRequestForObject{},
+	)
+	if err != nil {
+		return err
+	}
+
+	r.(*ReconcileTraffic).servicesLister = kubeInformerFactory.Core().V1().Services().Lister()
+	r.(*ReconcileTraffic).endpointLister = kubeInformerFactory.Core().V1().Endpoints().Lister()
+	r.(*ReconcileTraffic).Configuration = config
+
+	r.(*ReconcileTraffic).nginx = ngx
+
+	return nil
+}
+
+var _ reconcile.Reconciler = &ReconcileTraffic{}
+
+// ReconcileTraffic reconciles a Traffic object
+type ReconcileTraffic struct {
+	Configuration *env.Spec
+
+	client.Client
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
+
+	nginx nginx.NGINX
+
+	servicesLister listerscorev1.ServiceLister
+	endpointLister listerscorev1.EndpointsLister
+}
+
+// Reconcile reads that state of the cluster for a Traffic object and makes changes based on the state read
+// and what is in the Traffic.Spec
+// Automatically generate RBAC rules to allow the Controller to read and write Deployments
+// +kubebuilder:rbac:groups=apps,resources=services,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,resources=endpoints,verbs=get;list;watch
+func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	namespace := r.Configuration.Namespace
+	service := r.Configuration.Service
+
+	log.Info("Reconciling servicio", "namespace", namespace, "service", service)
+	svc, err := r.servicesLister.Services(namespace).Get(service)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if svc.Spec.Type == corev1.ServiceTypeExternalName {
+		return reconcile.Result{}, fmt.Errorf("Service type ExternalName is not supported")
+	}
+
+	endpoints, err := r.endpointLister.Endpoints(namespace).Get(service)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if len(endpoints.Subsets) == 0 {
+		log.Info("Service without active endpoints", "service", service)
+	}
+
+	log.Info("Reconciling configuration")
+	cfg := kubeToNGINX(svc, endpoints)
+
+	err = r.nginx.Update(cfg)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}

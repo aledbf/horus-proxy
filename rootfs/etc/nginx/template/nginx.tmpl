@@ -1,0 +1,146 @@
+pid /tmp/nginx.pid;
+daemon off;
+
+worker_processes 1;
+worker_shutdown_timeout 60s;
+
+events {
+    multi_accept        on;
+    worker_connections  1024;
+}
+
+http {
+    lua_package_cpath "/usr/local/lib/lua/?.so;/usr/lib/lua-platform-path/lua/5.1/?.so;;";
+    lua_package_path "/etc/nginx/lua/?.lua;/etc/nginx/lua/vendor/?.lua;/usr/local/lib/lua/?.lua;;";
+
+    lua_shared_dict configuration_data 5M;
+
+    init_by_lua_block {
+        require("resty.core")
+        collectgarbage("collect")
+
+        -- init modules
+        local ok, res
+
+        ok, res = pcall(require, "configuration")
+        if not ok then
+          error("require failed: " .. tostring(res))
+        else
+          configuration = res
+        end
+
+        ok, res = pcall(require, "balancer")
+        if not ok then
+          error("require failed: " .. tostring(res))
+        else
+          balancer = res
+        end
+
+        --- ok, res = pcall(require, "monitor")
+        --- if not ok then
+        ---   error("require failed: " .. tostring(res))
+        --- else
+        ---   monitor = res
+        --- end
+    }
+
+    init_worker_by_lua_block {
+        balancer.init_worker()
+        --- monitor.init_worker()
+    }
+
+    tcp_nopush                      on;
+    tcp_nodelay                     on;
+
+    log_subrequest                  on;
+
+    reset_timedout_connection       on;
+
+    keepalive_timeout               75s;
+    keepalive_requests              300;
+
+    underscores_in_headers          on;
+    ignore_invalid_headers          on;
+
+    #include /etc/nginx/mime.types;
+    #default_type text/html;
+    
+    server_tokens off;
+
+    # disable warnings
+    uninitialized_variable_warn     off;
+
+    server_name_in_redirect         off;
+    port_in_redirect                off;
+
+    client_max_body_size            0;
+    client_body_buffer_size         0;
+    proxy_buffering                 off;
+
+    proxy_connect_timeout           1s;
+    proxy_send_timeout              0;
+    proxy_read_timeout              0;
+
+    upstream upstream_balancer {
+        server 0.0.0.1; # placeholder
+
+        balancer_by_lua_block {
+            balancer.balance()
+        }
+
+        keepalive 10;
+    }
+
+    {{ range $server := .Servers }}
+    server {
+        listen {{ $server.Port }} default_server backlog=1024;
+        server_name _;
+        
+        set $proxy_upstream_name "{{ $server.Name }}";
+    
+        location / {
+            proxy_pass            http://upstream_balancer;
+        }
+    }
+    {{ end }}
+
+    server {
+        listen unix:/tmp/nginx-config-socket.sock;
+        set $proxy_upstream_name "internal";
+
+        keepalive_timeout 0;
+        gzip off;
+
+        access_log off;
+
+        location /healthz {
+            return 200;
+        }
+
+        location /is-dynamic-lb-initialized {
+            content_by_lua_block {
+                local configuration = require("configuration")
+                local backend_data = configuration.get_backends_data()
+                if not backend_data then
+                    ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
+                    return
+                end
+
+                ngx.say("OK")
+                ngx.exit(ngx.HTTP_OK)
+            }
+        }
+
+        location /configuration {
+            content_by_lua_block {
+              configuration.call()
+            }
+        }
+
+        location / {
+            content_by_lua_block {
+                ngx.exit(ngx.HTTP_NOT_FOUND)
+            }
+        }
+    }
+}
