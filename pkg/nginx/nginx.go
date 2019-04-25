@@ -78,13 +78,11 @@ func (ngx *nginx) Start(stopCh <-chan struct{}) error {
 }
 
 func (ngx *nginx) Update(cfg *Configuration) error {
-	log.Info("building nginx.conf")
 	nginxConf, err := ngx.template.Render(cfg)
 	if err != nil {
 		return err
 	}
 
-	log.Info("checking if a reload is required")
 	err = reloadIfRequired(nginxConf)
 	if err != nil {
 		return err
@@ -99,7 +97,6 @@ func (ngx *nginx) Update(cfg *Configuration) error {
 		Jitter:   0.1,
 	}
 
-	log.Info("updating dynamic configuration")
 	err = wait.ExponentialBackoff(retry, func() (bool, error) {
 		statusCode, _, err := newPostStatusRequest("/configuration/backends", cfg.Servers)
 		if err != nil {
@@ -110,7 +107,6 @@ func (ngx *nginx) Update(cfg *Configuration) error {
 			return false, fmt.Errorf("unexpected error code: %d", statusCode)
 		}
 
-		log.Info("dynamic reconfiguration succeeded")
 		return true, nil
 	})
 
@@ -143,7 +139,6 @@ func reloadIfRequired(data []byte) error {
 	}
 
 	if bytes.Equal(src, data) {
-		log.Info("no need to reload nginx")
 		return nil
 	}
 

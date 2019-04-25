@@ -69,4 +69,5 @@ spec:
         - name: PROXY_SERVICE
           value: http-svc
         image: aledbf/horus-proxy:dev
+        imagePullPolicy: Always
         name: http-svc-proxy

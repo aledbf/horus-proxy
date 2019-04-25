@@ -191,7 +191,6 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 		log.Info("Service without active endpoints", "service", service)
 	}
 
-	log.Info("Reconciling configuration")
 	cfg := kubeToNGINX(svc, endpoints)
 
 	err = r.nginx.Update(cfg)
