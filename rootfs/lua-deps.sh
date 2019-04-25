@@ -8,8 +8,6 @@ export DEBIAN_FRONTEND=noninteractive
 
 export BUILD_PATH=/tmp/build
 
-ARCH=$(uname -m)
-
 get_src()
 {
   hash="$1"
@@ -18,7 +16,7 @@ get_src()
 
   echo "Downloading $url"
 
-  curl -sSL "$url" -o "$f"
+  curl -fsSL "$url" -o "$f"
   echo "$hash  $f" | sha256sum -c - || exit 10
   tar xzf "$f"
   rm -rf "$f"
@@ -76,3 +74,6 @@ apk del \
   gcc
 
 rm -rf /var/cache/apk/*
+
+cd /
+rm -rf $BUILD_PATH
