@@ -187,7 +187,7 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	if len(endpoints.Subsets) == 0 {
-		log.Info("Service without active endpoints", "service", service)
+		log.Info("Service without active endpoints", "namespace", namespace, "service", service)
 	}
 
 	cfg := kubeToNGINX(svc, endpoints)
