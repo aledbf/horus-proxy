@@ -285,15 +285,15 @@ function Prometheus.init(dict_name, prefix)
   self.bucket_format = {}
   self.initialized = true
 
-  self:counter("nginx_metric_errors_total",
+  self:counter("http_requests_errors_total",
     "Number of nginx-lua-prometheus errors")
-  self.dict:set("nginx_metric_errors_total", 0)
+  self.dict:set("http_requests_errors_total", 0)
   return self
 end
 
 function Prometheus:log_error(...)
   ngx.log(ngx.ERR, ...)
-  self.dict:incr("nginx_metric_errors_total", 1)
+  self.dict:incr("http_requests_errors_total", 1)
 end
 
 function Prometheus:log_error_kv(key, value, err)
