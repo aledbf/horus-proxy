@@ -172,7 +172,6 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 	namespace := r.Configuration.Namespace
 	service := r.Configuration.Service
 
-	log.Info("Reconciling servicio", "namespace", namespace, "service", service)
 	svc, err := r.servicesLister.Services(namespace).Get(service)
 	if err != nil {
 		return reconcile.Result{}, err
