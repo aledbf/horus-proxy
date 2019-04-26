@@ -79,8 +79,8 @@ http {
     client_body_buffer_size         0;
     proxy_buffering                 off;
 
-    proxy_send_timeout              900;
-    proxy_read_timeout              900;
+    proxy_send_timeout              1800;
+    proxy_read_timeout              1800;
     proxy_socket_keepalive          on;
 
     log_format upstreaminfo '[$time_local] "$request" $status $body_bytes_sent $request_length $request_time [$proxy_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status';

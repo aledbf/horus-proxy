@@ -81,8 +81,8 @@ local function wait_for_balancer()
     balancer = balancers[backend_name]
     if not balancer then
       configuration.set_waiting_for_endpoints(true)
-      ngx.log(ngx.ERR, "not upstream servers available in ", backend_name)
-      ngx.sleep(5)
+      ngx.log(ngx.DEBUG, "not upstream servers available in ", backend_name)
+      ngx.sleep(math.random(3,7))
     else
       configuration.set_waiting_for_endpoints(false)
       break
