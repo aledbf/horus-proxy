@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
@@ -213,15 +212,12 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <-chan struct{}) {
 	collector := metrics.NewCollector()
 	go collector.Start(stopCh)
+
 	// wait before start collecting metrics
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
-	t := time.NewTicker(time.Second * 10)
-
-	key := types.NamespacedName{
-		Namespace: config.Namespace,
-		Name:      config.Deployment,
-	}
+	// check desired state interval
+	t := time.NewTicker(8 * time.Second)
 
 	idleAfter := *config.IdleAfter
 
@@ -233,7 +229,7 @@ func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <
 
 			if stats.WaitingForPods {
 				log.Info("Scaling deployment up due pending requests")
-				err := scaleDeployment(int32(1), key, client)
+				err := scaleDeployment(config.Namespace, config.Deployment, int32(1), client)
 				if err != nil {
 					log.Error(err, "scaling deployment to 1 replica")
 				}
@@ -242,12 +238,13 @@ func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <
 			}
 
 			if stats.EndpointCount == 0 {
+				// avoid access to apiserver running unnecessary scaling action
 				continue
 			}
 
 			if stats.LastRequest >= int(idleAfter.Seconds()) {
 				log.Info("Scaling deployment to zero due inactivity", "after", idleAfter)
-				err := scaleDeployment(int32(0), key, client)
+				err := scaleDeployment(config.Namespace, config.Deployment, int32(0), client)
 				if err != nil {
 					log.Error(err, "scaling deployment to 0 replicas")
 				}
@@ -259,14 +256,14 @@ func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <
 	}
 }
 
-func scaleDeployment(replicas int32, key types.NamespacedName, client kubernetes.Interface) error {
-	deployment, err := client.AppsV1().Deployments(key.Namespace).Get(key.Name, metav1.GetOptions{})
+func scaleDeployment(namespace, name string, replicas int32, client kubernetes.Interface) error {
+	deployment, err := client.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
 	deployment.Spec.Replicas = &replicas
-	_, err = client.AppsV1().Deployments(key.Namespace).Update(deployment)
+	_, err = client.AppsV1().Deployments(namespace).Update(deployment)
 	if err != nil {
 		return err
 	}
