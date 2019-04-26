@@ -27,8 +27,11 @@ local function sync_backend(backend)
   if not backend.endpoints or #backend.endpoints == 0 then
     ngx.log(ngx.INFO, string.format("there is no endpoint for backend %s. Removing...", backend.name))
     balancers[backend.name] = nil
+    configuration.set_endpoint_count(0)
     return
   end
+
+  configuration.set_endpoint_count(#backend.endpoints)
 
   local implementation = round_robin
   local balancer = balancers[backend.name]

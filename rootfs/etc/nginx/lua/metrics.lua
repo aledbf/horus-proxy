@@ -14,6 +14,8 @@ local metric_waiting_for_endpoint = prometheus:gauge(
     "http_requests_waiting_endpoint", "Info metric indicating if the proxy is waiting for pods")
 local metric_last_request = prometheus:gauge(
     "http_requests_seconds_ago", "Number of seconds since the last connection")
+local metric_endpoint_count = prometheus:gauge(
+      "endpoint_count", "Number of running endpoints")
 
 function _M.collect()
   metric_connections:set(ngx.var.connections_reading, {"reading"})
@@ -27,6 +29,8 @@ function _M.collect()
   if configuration.get_waiting_for_endpoints() then
     waiting = 1
   end
+
+  metric_endpoint_count:set(configuration.get_endpoint_count())
 
   metric_waiting_for_endpoint:set(waiting)
 

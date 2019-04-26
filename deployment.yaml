@@ -18,11 +18,32 @@ rules:
   resources:
   - services
   - endpoints
-  - namespaces
   verbs:
   - get
   - list
   - watch
+  resourceNames:
+    - http-svc
+
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  resourceNames:
+    - default
+
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - update
+  resourceNames:
+    - http-svc
 
 ---
 
@@ -66,6 +87,8 @@ spec:
       - env:
         - name: PROXY_NAMESPACE
           value: default
+        - name: PROXY_DEPLOYMENT
+          value: http-svc
         - name: PROXY_SERVICE
           value: http-svc
         image: aledbf/horus-proxy:dev

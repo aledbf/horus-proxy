@@ -19,15 +19,15 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/client-go/tools/record"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/record"
 	apiscore "k8s.io/kubernetes/pkg/apis/core"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/aledbf/horus-proxy/pkg/env"
+	"github.com/aledbf/horus-proxy/pkg/metrics"
 	"github.com/aledbf/horus-proxy/pkg/nginx"
 )
 
@@ -141,6 +142,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+		go setupScalingMonitor(config, kubeclient, s)
+		<-s
+		return nil
+	}))
+	if err != nil {
+		return err
+	}
+
 	r.(*ReconcileTraffic).servicesLister = kubeInformerFactory.Core().V1().Services().Lister()
 	r.(*ReconcileTraffic).endpointLister = kubeInformerFactory.Core().V1().Endpoints().Lister()
 	r.(*ReconcileTraffic).Configuration = config
@@ -198,4 +208,68 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <-chan struct{}) {
+	collector := metrics.NewCollector()
+	go collector.Start(stopCh)
+	// wait before start collecting metrics
+	time.Sleep(5 * time.Second)
+
+	t := time.NewTicker(time.Second * 10)
+
+	key := types.NamespacedName{
+		Namespace: config.Namespace,
+		Name:      config.Deployment,
+	}
+
+	idleAfter := *config.IdleAfter
+
+	for {
+		select {
+		case <-t.C:
+			stats := collector.CurrentStats()
+			log.V(2).Info("metrics", "lastRequest", stats.LastRequest, "idleAfter", idleAfter, "endpointCount", stats.EndpointCount)
+
+			if stats.WaitingForPods {
+				log.Info("Scaling deployment up due pending requests")
+				err := scaleDeployment(int32(1), key, client)
+				if err != nil {
+					log.Error(err, "scaling deployment to 1 replica")
+				}
+
+				continue
+			}
+
+			if stats.EndpointCount == 0 {
+				continue
+			}
+
+			if stats.LastRequest >= int(idleAfter.Seconds()) {
+				log.Info("Scaling deployment to zero due inactivity", "after", idleAfter)
+				err := scaleDeployment(int32(0), key, client)
+				if err != nil {
+					log.Error(err, "scaling deployment to 0 replicas")
+				}
+			}
+		case <-stopCh:
+			log.Info("stoping collection of metrics")
+			break
+		}
+	}
+}
+
+func scaleDeployment(replicas int32, key types.NamespacedName, client kubernetes.Interface) error {
+	deployment, err := client.AppsV1().Deployments(key.Namespace).Get(key.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	deployment.Spec.Replicas = &replicas
+	_, err = client.AppsV1().Deployments(key.Namespace).Update(deployment)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

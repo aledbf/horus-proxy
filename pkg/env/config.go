@@ -8,9 +8,10 @@ import (
 
 // Spec hold configuration of the proxy to build
 type Spec struct {
-	Namespace string         `required:"true" envconfig:"NAMESPACE"`
-	Service   string         `required:"true" envconfig:"SERVICE"`
-	IdleAfter *time.Duration `envconfig:"IDLE_AFTER"`
+	Namespace  string         `required:"true" envconfig:"NAMESPACE"`
+	Deployment string         `required:"true" envconfig:"DEPLOYMENT"`
+	Service    string         `required:"true" envconfig:"SERVICE"`
+	IdleAfter  *time.Duration `envconfig:"IDLE_AFTER"`
 }
 
 // Parse extracts the configuration defined by Environment variables
@@ -22,7 +23,7 @@ func Parse() (*Spec, error) {
 	}
 
 	if s.IdleAfter == nil {
-		ia := time.Duration(3 * time.Minute)
+		ia := time.Duration(90 * time.Second)
 		s.IdleAfter = &ia
 	}
 

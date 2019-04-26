@@ -11,10 +11,21 @@ function _M.get_waiting_for_endpoints()
   return configuration_data:get("waiting_for_endpoints")
 end
 
+function _M.get_endpoint_count()
+  return configuration_data:get("endpoint_count")
+end
+
+function _M.set_endpoint_count(count)
+  local success, err = configuration_data:safe_set("endpoint_count", count)
+  if not success then
+    ngx.log(ngx.ERR, "error setting config: " .. tostring(err))
+  end
+end
+
 function _M.set_waiting_for_endpoints(waiting)
   local success, err = configuration_data:safe_set("waiting_for_endpoints", waiting)
   if not success then
-    ngx.log(ngx.ERR, "error setting general config: " .. tostring(err))
+    ngx.log(ngx.ERR, "error setting config: " .. tostring(err))
   end
 end
 
