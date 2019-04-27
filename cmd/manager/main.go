@@ -24,6 +24,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
@@ -33,9 +34,6 @@ import (
 
 func main() {
 	klog.InitFlags(nil)
-
-	var metricsAddr string
-	flag.StringVar(&metricsAddr, "metrics-addr", ":10250", "The address the metric endpoint binds to.")
 
 	flag.StringVar(&nginx.DefaultTemplate, "nginx-tempĺate", nginx.DefaultTemplate, "NGINX template to use.")
 	flag.StringVar(&nginx.DefaultNGINXBinary, "nginx-binary", nginx.DefaultNGINXBinary, "NGINX binary to use.")
@@ -57,7 +55,7 @@ func main() {
 	// Create a new Cmd to provide shared dependencies and start components
 	log.Info("setting up manager")
 	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: metricsAddr,
+		MetricsBindAddress: metrics.DefaultBindAddress,
 	})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")
