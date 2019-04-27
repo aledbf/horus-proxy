@@ -40,7 +40,7 @@ func (c *Collector) CurrentStats() *Proxy {
 }
 
 func (c *Collector) Start(stopCh <-chan struct{}) {
-	t := time.NewTicker(time.Second * 5)
+	t := time.NewTicker(time.Second * 3)
 	for {
 		select {
 		case <-t.C:
