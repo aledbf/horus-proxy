@@ -7,44 +7,36 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func kubeToNGINX(svc *corev1.Service, endpoints *corev1.Endpoints) *nginx.Configuration {
+const (
+	handledByLabelName  = "handled-by"
+	handledByLabelValue = "horus-proxy"
+)
+
+func kubeToNGINX(svc *corev1.Service, pods []*corev1.Pod) *nginx.Configuration {
 	servers := make([]nginx.Server, 0)
 
 	for _, service := range svc.Spec.Ports {
 		upstreams := []nginx.Endpoint{}
 
-		for i := range endpoints.Subsets {
-			ss := &endpoints.Subsets[i]
-			for i := range ss.Ports {
-				epPort := &ss.Ports[i]
-				if epPort.Protocol != corev1.ProtocolTCP {
-					continue
-				}
-
-				var targetPort int32
-
-				if service.Name == "" {
-					// port.Name is optional if there is only one port
-					targetPort = epPort.Port
-				} else if service.Name == epPort.Name {
-					targetPort = epPort.Port
-				}
-
-				if targetPort == 0 {
-					continue
-				}
-
-				for i := range ss.Addresses {
-					epAddress := &ss.Addresses[i]
-					ups := nginx.Endpoint{
-						Address: epAddress.IP,
-						Port:    fmt.Sprintf("%v", targetPort),
-					}
-
-					upstreams = append(upstreams, ups)
-				}
+		for _, pod := range pods {
+			if !IsPodReady(pod) {
+				continue
 			}
 
+			if _, ok := pod.Labels[handledByLabelName]; ok {
+				continue
+			}
+
+			if len(pod.Status.PodIP) == 0 {
+				continue
+			}
+
+			ups := nginx.Endpoint{
+				Address: pod.Status.PodIP,
+				Port:    service.TargetPort.String(),
+			}
+
+			upstreams = append(upstreams, ups)
 		}
 
 		servers = append(servers, nginx.Server{

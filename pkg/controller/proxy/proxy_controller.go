@@ -21,13 +21,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
+	//"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/record"
-	apiscore "k8s.io/kubernetes/pkg/apis/core"
+	//apiscore "k8s.io/kubernetes/pkg/apis/core"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -90,7 +91,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	_, err = kubeclient.CoreV1().Services(config.Namespace).Get(config.Service, metav1.GetOptions{})
+	service, err := kubeclient.CoreV1().Services(config.Namespace).Get(config.Service, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -109,9 +110,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	ls := service.Labels
+	delete(ls, handledByLabelName)
+
+	labelSelector := labels.SelectorFromSet(ls)
+
 	kubeInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeclient, 10*time.Minute, config.Namespace,
 		func(options *metav1.ListOptions) {
-			options.FieldSelector = fields.OneTermEqualSelector(apiscore.ObjectNameField, config.Service).String()
+			options.LabelSelector = labelSelector.String()
 		},
 	)
 
@@ -134,7 +140,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(
-		&source.Informer{Informer: kubeInformerFactory.Core().V1().Endpoints().Informer()},
+		&source.Informer{Informer: kubeInformerFactory.Core().V1().Pods().Informer()},
 		&handler.EnqueueRequestForObject{},
 	)
 	if err != nil {
@@ -151,10 +157,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	r.(*ReconcileTraffic).servicesLister = kubeInformerFactory.Core().V1().Services().Lister()
-	r.(*ReconcileTraffic).endpointLister = kubeInformerFactory.Core().V1().Endpoints().Lister()
+	r.(*ReconcileTraffic).podsLister = kubeInformerFactory.Core().V1().Pods().Lister()
 	r.(*ReconcileTraffic).Configuration = config
 
 	r.(*ReconcileTraffic).nginx = ngx
+
+	r.(*ReconcileTraffic).labelsSelector = labelSelector
 
 	return nil
 }
@@ -172,7 +180,9 @@ type ReconcileTraffic struct {
 	nginx nginx.NGINX
 
 	servicesLister listerscorev1.ServiceLister
-	endpointLister listerscorev1.EndpointsLister
+	podsLister     listerscorev1.PodLister
+
+	labelsSelector labels.Selector
 }
 
 // Reconcile reads that state of the cluster for a Traffic object and makes changes based on the state read
@@ -190,16 +200,17 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, fmt.Errorf("Service type ExternalName is not supported")
 	}
 
-	endpoints, err := r.endpointLister.Endpoints(namespace).Get(service)
+	pods, err := r.podsLister.Pods(namespace).List(r.labelsSelector)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if len(endpoints.Subsets) == 0 {
-		log.Info("Service without active endpoints", "namespace", namespace, "service", service)
+	if len(pods) == 0 {
+		log.Info("Service without running pods", "namespace", namespace, "service", service)
 	}
 
-	cfg := kubeToNGINX(svc, endpoints)
+	cfg := kubeToNGINX(svc, pods)
+	log.V(2).Info("NGINX configuration", "cfg", cfg)
 
 	err = r.nginx.Update(cfg)
 	if err != nil {
