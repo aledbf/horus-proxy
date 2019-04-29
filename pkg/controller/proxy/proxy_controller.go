@@ -29,6 +29,7 @@ import (
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/record"
 	//apiscore "k8s.io/kubernetes/pkg/apis/core"
+	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -200,13 +201,19 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, fmt.Errorf("Service type ExternalName is not supported")
 	}
 
-	pods, err := r.podsLister.Pods(namespace).List(r.labelsSelector)
+	labelSelector := r.labelsSelector
+	lr, err := labels.NewRequirement(handledByLabelName, selection.DoesNotExist, []string{})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	pods, err := r.podsLister.Pods(namespace).List(labelSelector.Add(*lr))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	if len(pods) == 0 {
-		log.Info("Service without running pods", "namespace", namespace, "service", service)
+		log.V(2).Info("Service without running pods", "namespace", namespace, "service", service)
 	}
 
 	cfg := kubeToNGINX(svc, pods)
