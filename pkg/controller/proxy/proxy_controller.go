@@ -217,8 +217,6 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	cfg := kubeToNGINX(svc, pods)
-	log.V(2).Info("NGINX configuration", "cfg", cfg)
-
 	err = r.nginx.Update(cfg)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -235,7 +233,7 @@ func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <
 	time.Sleep(3 * time.Second)
 
 	// check desired state interval
-	t := time.NewTicker(8 * time.Second)
+	t := time.NewTicker(5 * time.Second)
 
 	idleAfter := *config.IdleAfter
 
@@ -260,7 +258,7 @@ func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <
 				continue
 			}
 
-			if stats.LastRequest >= int(idleAfter.Seconds()) {
+			if stats.LastRequest >= int(idleAfter.Seconds()) && stats.PendingRequests <= 1 {
 				log.Info("Scaling deployment to zero due inactivity", "after", idleAfter)
 				err := scaleDeployment(config.Namespace, config.Deployment, int32(0), client)
 				if err != nil {
