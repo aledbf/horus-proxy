@@ -19,15 +19,20 @@ func kubeToNGINX(svc *corev1.Service, pods []*corev1.Pod) *nginx.Configuration {
 		upstreams := []nginx.Endpoint{}
 
 		for _, pod := range pods {
+			if len(pod.Status.PodIP) == 0 {
+				continue
+			}
+
+			if pod.DeletionTimestamp != nil {
+				// pod being deleted
+				continue
+			}
+
 			if !IsPodReady(pod) {
 				continue
 			}
 
 			if _, ok := pod.Labels[handledByLabelName]; ok {
-				continue
-			}
-
-			if len(pod.Status.PodIP) == 0 {
 				continue
 			}
 
