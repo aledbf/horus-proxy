@@ -31,12 +31,15 @@ func NewInstance(path string) (NGINX, error) {
 	}
 
 	return &nginx{
-		template: tpl,
+		template:             tpl,
+		runningConfiguration: &Configuration{},
 	}, nil
 }
 
 type nginx struct {
 	template *template
+
+	runningConfiguration *Configuration
 }
 
 func (ngx *nginx) Start(stopCh <-chan struct{}) error {
@@ -88,6 +91,10 @@ func (ngx *nginx) Update(cfg *Configuration) error {
 		return err
 	}
 
+	if ngx.runningConfiguration.Equal(cfg) {
+		return nil
+	}
+
 	time.Sleep(100 * time.Millisecond)
 
 	retry := wait.Backoff{
@@ -110,7 +117,15 @@ func (ngx *nginx) Update(cfg *Configuration) error {
 		return true, nil
 	})
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	ngx.runningConfiguration = cfg
+
+	log.Info("NGINX configuration", "cfg", cfg)
+
+	return nil
 }
 
 // DefaultNGINXBinary default location of NGINX binary.
