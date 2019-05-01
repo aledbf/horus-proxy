@@ -12,24 +12,24 @@ const (
 	handledByLabelValue = "horus-proxy"
 )
 
-func kubeToNGINX(svc *corev1.Service, pods []*corev1.Pod) *nginx.Configuration {
+func kubeToNGINX(svc *corev1.Service, pods []*corev1.Pod) (*nginx.Configuration, error) {
 	servers := make([]nginx.Server, 0)
 
 	for _, service := range svc.Spec.Ports {
 		upstreams := []nginx.Endpoint{}
 
 		for _, pod := range pods {
-			if len(pod.Status.PodIP) == 0 {
-				continue
-			}
-
 			if pod.DeletionTimestamp != nil {
-				// pod being deleted
+				// pod is being deleted
 				continue
 			}
 
-			if !IsPodReady(pod) {
-				continue
+			if !isPodReady(pod) {
+				return nil, fmt.Errorf("One or more pods are not ready")
+			}
+
+			if len(pod.Status.PodIP) == 0 {
+				return nil, fmt.Errorf("One or more pods do not have an IP address")
 			}
 
 			if _, ok := pod.Labels[handledByLabelName]; ok {
@@ -53,5 +53,5 @@ func kubeToNGINX(svc *corev1.Service, pods []*corev1.Pod) *nginx.Configuration {
 
 	return &nginx.Configuration{
 		Servers: servers,
-	}
+	}, nil
 }

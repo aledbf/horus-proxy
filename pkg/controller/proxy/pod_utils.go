@@ -4,18 +4,28 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// IsPodReady returns true if a pod is ready; false otherwise.
-func IsPodReady(pod *corev1.Pod) bool {
-	return isPodReadyConditionTrue(pod.Status)
+// isPodReady returns true if a pod is ready; false otherwise.
+func isPodReady(pod *corev1.Pod) bool {
+	if pod.Status.Phase != corev1.PodRunning {
+		if pod.Status.Phase != corev1.PodSucceeded {
+			return false
+		}
+	}
+
+	if !isPodReadyConditionTrue(pod.Status) {
+		return false
+	}
+
+	return true
 }
 
-// IsPodReadyConditionTrue returns true if a pod is ready; false otherwise.
+// isPodReadyConditionTrue returns true if a pod is ready; false otherwise.
 func isPodReadyConditionTrue(status corev1.PodStatus) bool {
 	condition := getPodReadyCondition(status)
 	return condition != nil && condition.Status == corev1.ConditionTrue
 }
 
-// GetPodReadyCondition extracts the pod ready condition from the given status and returns that.
+// getPodReadyCondition extracts the pod ready condition from the given status and returns that.
 // Returns nil if the condition is not present.
 func getPodReadyCondition(status corev1.PodStatus) *corev1.PodCondition {
 	_, condition := getPodCondition(&status, corev1.PodReady)

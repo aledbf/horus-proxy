@@ -216,7 +216,11 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 		log.V(2).Info("Service without running pods", "namespace", namespace, "service", service)
 	}
 
-	cfg := kubeToNGINX(svc, pods)
+	cfg, err := kubeToNGINX(svc, pods)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	err = r.nginx.Update(cfg)
 	if err != nil {
 		return reconcile.Result{}, err
