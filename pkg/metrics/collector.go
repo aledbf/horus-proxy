@@ -60,7 +60,7 @@ func (c *Collector) Start(stopCh <-chan struct{}) {
 }
 
 func getMetrics() (*Proxy, error) {
-	data, err := requestStats(fmt.Sprintf("http://localhost:19999/metrics"))
+	data, err := requestStats(fmt.Sprintf("http://localhost:%v/metrics", metricPort))
 	if err != nil {
 		return nil, err
 	}
