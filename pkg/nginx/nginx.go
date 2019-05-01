@@ -95,28 +95,9 @@ func (ngx *nginx) Update(cfg *Configuration) error {
 		return nil
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(2 * time.Second)
 
-	retry := wait.Backoff{
-		Steps:    15,
-		Duration: 1 * time.Second,
-		Factor:   0.8,
-		Jitter:   0.1,
-	}
-
-	err = wait.ExponentialBackoff(retry, func() (bool, error) {
-		statusCode, _, err := newPostStatusRequest("/configuration/backends", cfg.Servers)
-		if err != nil {
-			return false, err
-		}
-
-		if statusCode != http.StatusCreated {
-			return false, fmt.Errorf("unexpected error code: %d", statusCode)
-		}
-
-		return true, nil
-	})
-
+	err = updateConfiguration(cfg.Servers)
 	if err != nil {
 		return err
 	}
@@ -198,4 +179,28 @@ func reloadIfRequired(data []byte) error {
 	}
 
 	return nil
+}
+
+func updateConfiguration(servers []Server) error {
+	retry := wait.Backoff{
+		Steps:    15,
+		Duration: 1 * time.Second,
+		Factor:   0.8,
+		Jitter:   0.1,
+	}
+
+	err := wait.ExponentialBackoff(retry, func() (bool, error) {
+		statusCode, _, err := newPostStatusRequest("/configuration/backends", servers)
+		if err != nil {
+			return false, err
+		}
+
+		if statusCode != http.StatusCreated {
+			return false, fmt.Errorf("unexpected error code: %d", statusCode)
+		}
+
+		return true, nil
+	})
+
+	return err
 }
