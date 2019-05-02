@@ -41,7 +41,7 @@ func main() {
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
-	logf.SetLogger(logf.ZapLogger(true))
+	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
 
 	// Get a config to talk to the apiserver
