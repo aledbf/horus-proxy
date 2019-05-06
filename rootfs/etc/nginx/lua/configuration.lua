@@ -12,7 +12,7 @@ function _M.get_waiting_for_endpoints()
 end
 
 function _M.get_endpoint_count()
-  return configuration_data:get("endpoint_count")
+  return configuration_data:get("endpoint_count") or 0
 end
 
 function _M.set_endpoint_count(count)
