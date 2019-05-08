@@ -214,7 +214,8 @@ func (c *Controller) processNextWorkItem() bool {
 	// resource to be synced.
 	if result, err := c.Do.Reconcile(req); err != nil {
 		c.Queue.AddRateLimited(req)
-		log.Error(err, "Reconciler error", "controller", c.Name, "request", req)
+		// TODO: How we can customize this
+		log.Error(nil, "Reconciler error", "controller", c.Name, "request", req, "error", err.Error())
 		ctrlmetrics.ReconcileErrors.WithLabelValues(c.Name).Inc()
 		ctrlmetrics.ReconcileTotal.WithLabelValues(c.Name, "error").Inc()
 		return false

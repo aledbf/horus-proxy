@@ -76,12 +76,16 @@ local function wait_for_balancer()
   local backend_name = ngx.var.proxy_upstream_name
 
   local balancer
-  -- wait up to 5 minutes
+
   while true do
     balancer = balancers[backend_name]
     if not balancer then
-      configuration.set_waiting_for_endpoints(true)
-      ngx.log(ngx.ERR, "no upstream servers available in ", backend_name)
+      waiting = configuration.get_waiting_for_endpoints()
+      if not waiting then
+        configuration.set_waiting_for_endpoints(true)
+      end
+
+      ngx.log(ngx.DEBUG, "no upstream servers available in ", backend_name)
       ngx.sleep(math.random(3,7))
     else
       configuration.set_waiting_for_endpoints(false)
