@@ -80,7 +80,7 @@ local function wait_for_balancer()
   while true do
     balancer = balancers[backend_name]
     if not balancer then
-      waiting = configuration.get_waiting_for_endpoints()
+      local waiting = configuration.get_waiting_for_endpoints()
       if not waiting then
         configuration.set_waiting_for_endpoints(true)
       end
