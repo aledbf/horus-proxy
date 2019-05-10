@@ -79,7 +79,7 @@ func requestStats(url string) ([]byte, error) {
 	}
 	client := &http.Client{
 		Transport: tr,
-		Timeout:   5 * time.Second,
+		Timeout:   10 * time.Second,
 	}
 
 	res, err := client.Get(url)

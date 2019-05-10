@@ -81,7 +81,6 @@ http {
 
     proxy_send_timeout              1800s;
     proxy_read_timeout              1800s;
-    proxy_socket_keepalive          on;
     proxy_next_upstream_tries       10;
 
     log_format upstreaminfo '[$time_local] "$request" $status $body_bytes_sent $request_length $request_time [$proxy_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status';
