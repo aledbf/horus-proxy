@@ -25,11 +25,11 @@ func kubeToNGINX(svc *corev1.Service, pods []*corev1.Pod) (*nginx.Configuration,
 			}
 
 			if !isPodReady(pod) {
-				return nil, fmt.Errorf("One or more pods are not ready")
+				continue
 			}
 
 			if len(pod.Status.PodIP) == 0 {
-				return nil, fmt.Errorf("One or more pods do not have an IP address")
+				continue
 			}
 
 			if _, ok := pod.Labels[handledByLabelName]; ok {
