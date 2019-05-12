@@ -6,7 +6,8 @@ worker_shutdown_timeout             60s;
 
 events {
     multi_accept                    on;
-    worker_connections              1024;
+    worker_connections              2048;
+    use                             epoll;
 }
 
 http {
@@ -153,9 +154,7 @@ http {
         }
 
         location / {
-            content_by_lua_block {
-                balancer.not_found()
-            }
+            return 404;
         }
     }
 
