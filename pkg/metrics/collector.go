@@ -75,7 +75,9 @@ func getMetrics() (*Proxy, error) {
 
 func requestStats(url string) ([]byte, error) {
 	tr := &http.Transport{
-		DisableKeepAlives: true,
+		DisableKeepAlives:     true,
+		DisableCompression:    true,
+		ResponseHeaderTimeout: 10 * time.Second,
 	}
 	client := &http.Client{
 		Transport: tr,
