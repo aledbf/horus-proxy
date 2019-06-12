@@ -11,7 +11,7 @@ COPY vendor/ vendor/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager github.com/aledbf/horus-proxy/cmd/manager
 
 # Copy the controller-manager into a thin image
-FROM openresty/openresty:1.15.8.1rc1-alpine
+FROM openresty/openresty:1.15.8.1-alpine
 
 WORKDIR /
 
