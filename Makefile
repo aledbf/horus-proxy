@@ -26,8 +26,8 @@ deploy: manifests
 	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+manifests: controller-gen
+	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/apis/...
 
 # Run go fmt against code
 fmt:
@@ -54,7 +54,18 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
+.PHONY: dep-ensure
 dep-ensure:
-	dep ensure -v	
-	dep prune -v	
+	GO111MODULE=on go mod tidy -v
+	GO111MODULE=on go mod vendor
 	find vendor -name '*_test.go' -delete
+
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.0-beta.2
+CONTROLLER_GEN=$(shell go env GOPATH)/bin/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif
