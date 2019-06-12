@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/aledbf/horus-proxy/pkg/controller"
@@ -41,7 +42,7 @@ func main() {
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
-	logf.SetLogger(logf.ZapLogger(false))
+	logf.SetLogger(logf.ZapLogger(true))
 	log := logf.Log.WithName("entrypoint")
 
 	// Get a config to talk to the apiserver

@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	//"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/record"
+
 	//apiscore "k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +58,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileTraffic{
 		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetRecorder("proxy-controller"),
+		recorder: mgr.GetEventRecorderFor("proxy-controller"),
 	}
 }
 
