@@ -8,6 +8,9 @@ import (
 	"time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
+	"github.com/gojektech/heimdall"
+	"github.com/gojektech/heimdall/httpclient"
 )
 
 const (
@@ -16,18 +19,21 @@ const (
 
 var log = logf.Log.WithName("controller").WithName("metrics")
 
+// Collector defines a metrics collector
 type Collector struct {
 	stats *Proxy
 
 	mu *sync.RWMutex
 }
 
+// NewCollector returns a new Collector instance
 func NewCollector() *Collector {
 	return &Collector{
 		mu: &sync.RWMutex{},
 	}
 }
 
+// CurrentStats returns current stats
 func (c *Collector) CurrentStats() *Proxy {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -39,8 +45,10 @@ func (c *Collector) CurrentStats() *Proxy {
 	return c.stats
 }
 
+// Start ...
 func (c *Collector) Start(stopCh <-chan struct{}) {
-	t := time.NewTicker(time.Second * 3)
+	t := time.NewTicker(time.Second * 5)
+
 	for {
 		select {
 		case <-t.C:
@@ -74,23 +82,24 @@ func getMetrics() (*Proxy, error) {
 }
 
 func requestStats(url string) ([]byte, error) {
-	tr := &http.Transport{
-		DisableKeepAlives:     true,
-		DisableCompression:    true,
-		ResponseHeaderTimeout: 10 * time.Second,
-	}
-	client := &http.Client{
-		Transport: tr,
-		Timeout:   10 * time.Second,
-	}
+	httpClient := httpclient.NewClient(
+		httpclient.WithHTTPTimeout(5*time.Second),
+		httpclient.WithRetryCount(1),
+		httpclient.WithRetrier(
+			heimdall.NewRetrier(
+				heimdall.NewConstantBackoff(10*time.Millisecond, 50*time.Millisecond),
+			),
+		),
+	)
 
-	res, err := client.Get(url)
+	headers := http.Header{}
+	response, err := httpClient.Get(url, headers)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer response.Body.Close()
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
