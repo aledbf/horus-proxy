@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.12.5 as builder
+FROM golang:1.12.6 as builder
 
 # Copy in the go src
 WORKDIR /go/src/github.com/aledbf/horus-proxy
