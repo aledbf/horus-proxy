@@ -233,19 +233,18 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 
 func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <-chan struct{}) {
 	collector := metrics.NewCollector()
+
 	go collector.Start(stopCh)
 
 	// wait before start collecting metrics
 	time.Sleep(3 * time.Second)
 
-	// check desired state interval
-	t := time.NewTicker(5 * time.Second)
-
 	idleAfter := *config.IdleAfter
 
-	for {
+	// check desired state interval
+	for c := time.Tick(5 * time.Second); ; {
 		select {
-		case <-t.C:
+		case <-c:
 			stats := collector.CurrentStats()
 			log.V(2).Info("metrics", "lastRequest", stats.LastRequest, "idleAfter", idleAfter, "endpointCount", stats.EndpointCount)
 
@@ -272,7 +271,6 @@ func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <
 				}
 			}
 		case <-stopCh:
-			log.Info("stoping collection of metrics")
 			break
 		}
 	}
@@ -285,10 +283,20 @@ func scaleDeployment(namespace, name string, replicas int32, client kubernetes.I
 	}
 
 	deployment.Spec.Replicas = &replicas
+
 	_, err = client.AppsV1().Deployments(namespace).Update(deployment)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	for c := time.Tick(1 * time.Minute); ; <-c {
+		scale, err := client.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if scale.Status.ReadyReplicas == replicas {
+			return nil
+		}
+	}
 }

@@ -47,11 +47,9 @@ func (c *Collector) CurrentStats() *Proxy {
 
 // Start ...
 func (c *Collector) Start(stopCh <-chan struct{}) {
-	t := time.NewTicker(time.Second * 5)
-
-	for {
+	for t := time.Tick(6 * time.Second); ; {
 		select {
-		case <-t.C:
+		case <-t:
 			p, err := getMetrics()
 			if err != nil {
 				log.Error(err, "obtaining stats")
@@ -68,7 +66,7 @@ func (c *Collector) Start(stopCh <-chan struct{}) {
 }
 
 func getMetrics() (*Proxy, error) {
-	data, err := requestStats(fmt.Sprintf("http://localhost:%v/metrics", metricPort))
+	data, err := requestStats(fmt.Sprintf("http://127.0.0.1:%v/metrics", metricPort))
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +81,7 @@ func getMetrics() (*Proxy, error) {
 
 func requestStats(url string) ([]byte, error) {
 	httpClient := httpclient.NewClient(
-		httpclient.WithHTTPTimeout(5*time.Second),
+		httpclient.WithHTTPTimeout(10*time.Second),
 		httpclient.WithRetryCount(1),
 		httpclient.WithRetrier(
 			heimdall.NewRetrier(
