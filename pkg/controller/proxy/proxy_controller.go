@@ -24,11 +24,9 @@ import (
 
 	//"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/record"
 
 	//apiscore "k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/apimachinery/pkg/selection"
@@ -56,9 +54,7 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileTraffic{
-		Client:   mgr.GetClient(),
-		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor("proxy-controller"),
+		Client: mgr.GetClient(),
 	}
 }
 
@@ -118,7 +114,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	labelSelector := labels.SelectorFromSet(ls)
 
-	kubeInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeclient, 10*time.Minute, config.Namespace,
+	kubeInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeclient, 0, config.Namespace,
 		func(options *metav1.ListOptions) {
 			options.LabelSelector = labelSelector.String()
 		},
@@ -128,6 +124,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	err = mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
 		kubeInformerFactory.Start(s)
 		<-s
+
 		return nil
 	}))
 	if err != nil {
@@ -153,6 +150,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	err = mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
 		go setupScalingMonitor(config, kubeclient, s)
 		<-s
+
 		return nil
 	}))
 	if err != nil {
@@ -161,10 +159,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	r.(*ReconcileTraffic).servicesLister = kubeInformerFactory.Core().V1().Services().Lister()
 	r.(*ReconcileTraffic).podsLister = kubeInformerFactory.Core().V1().Pods().Lister()
+
 	r.(*ReconcileTraffic).Configuration = config
-
 	r.(*ReconcileTraffic).nginx = ngx
-
 	r.(*ReconcileTraffic).labelsSelector = labelSelector
 
 	return nil
@@ -177,8 +174,6 @@ type ReconcileTraffic struct {
 	Configuration *env.Spec
 
 	client.Client
-	scheme   *runtime.Scheme
-	recorder record.EventRecorder
 
 	nginx nginx.NGINX
 
@@ -204,6 +199,8 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	labelSelector := r.labelsSelector
+
+	// create a filter that excludes the pod running the NGINX proxy
 	lr, err := labels.NewRequirement(handledByLabelName, selection.DoesNotExist, []string{})
 	if err != nil {
 		return reconcile.Result{}, err
@@ -236,12 +233,8 @@ func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <
 
 	go collector.Start(stopCh)
 
-	// wait before start collecting metrics
-	time.Sleep(3 * time.Second)
-
 	idleAfter := *config.IdleAfter
 
-	// check desired state interval
 	for c := time.Tick(5 * time.Second); ; {
 		select {
 		case <-c:
@@ -282,6 +275,11 @@ func scaleDeployment(namespace, name string, replicas int32, client kubernetes.I
 		return err
 	}
 
+	if *deployment.Spec.Replicas == replicas {
+		log.V(2).Info("No need to scale the deployment. Already scaled", "replicas", replicas)
+		return nil
+	}
+
 	deployment.Spec.Replicas = &replicas
 
 	_, err = client.AppsV1().Deployments(namespace).Update(deployment)
@@ -289,13 +287,13 @@ func scaleDeployment(namespace, name string, replicas int32, client kubernetes.I
 		return err
 	}
 
-	for c := time.Tick(1 * time.Minute); ; <-c {
-		scale, err := client.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	for c := time.Tick(70 * time.Second); ; <-c {
+		deployment, err := client.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 
-		if scale.Status.ReadyReplicas == replicas {
+		if deployment.Status.ReadyReplicas == replicas {
 			return nil
 		}
 	}
