@@ -84,7 +84,7 @@ http {
     proxy_read_timeout              1800s;
     proxy_next_upstream_tries       5;
 
-    log_format upstreaminfo '[$time_local] "$request" $status $body_bytes_sent $request_length $request_time [$proxy_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status';
+    log_format upstreaminfo '$time_iso8601	INFO	nginx           {"method": "$request_method", "path": "$uri", "responseCode": $status, "durationMs": $request_time, "requestLength": $request_length, "responseLength": $bytes_sent, "upstreamAddress": "$upstream_addr", "upstreamResponseLength": "$upstream_response_length", "upstreamResponseTime": "$upstream_response_time", "upstreamStatus": "$upstream_status"}';
 
     access_log /usr/local/openresty/nginx/logs/access.log upstreaminfo;
     error_log  /usr/local/openresty/nginx/logs/error.log  notice;
