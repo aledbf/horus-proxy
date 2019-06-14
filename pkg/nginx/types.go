@@ -1,10 +1,12 @@
 package nginx
 
+// Endpoint defines the IP address and port of a pod from the deployment
 type Endpoint struct {
 	Address string `json:"address,omitempty"`
 	Port    string `json:"port,omitempty"`
 }
 
+// Equal compares the endpoint with another one
 func (e *Endpoint) Equal(to *Endpoint) bool {
 	return e.Address == to.Address && e.Port == to.Port
 }
@@ -34,6 +36,7 @@ func compareEndpoints(a, b []Endpoint) bool {
 	return Compare(a, b, compareEndpointsFunc)
 }
 
+// Equal compares the server with another one
 func (e *Server) Equal(to *Server) bool {
 	if e.Name != to.Name {
 		return false

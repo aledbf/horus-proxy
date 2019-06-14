@@ -69,7 +69,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	ngx, err := nginx.NewInstance(nginx.DefaultTemplate)
+	ngx, err := nginx.NewInstance(nginx.Template)
 	if err != nil {
 		return err
 	}

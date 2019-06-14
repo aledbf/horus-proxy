@@ -18,12 +18,16 @@ import (
 
 var log = logf.Log.WithName("controller")
 
+// NGINX defines
 type NGINX interface {
+	// Start creates a new NGINX process
 	Start(stopCh <-chan struct{}) error
 
+	// Update changes the running configuration in NGINX
 	Update(*Configuration) error
 }
 
+// NewInstance returns an NGINX instance
 func NewInstance(path string) (NGINX, error) {
 	tpl, err := newTemplate(path)
 	if err != nil {
@@ -104,13 +108,13 @@ func (ngx *nginx) Update(cfg *Configuration) error {
 
 	ngx.runningConfiguration = cfg
 
-	log.Info("NGINX configuration", "cfg", cfg)
+	log.V(2).Info("NGINX configuration", "cfg", cfg)
 
 	return nil
 }
 
-// DefaultNGINXBinary default location of NGINX binary.
-var DefaultNGINXBinary = "/usr/local/openresty/nginx/sbin/nginx"
+// Binary location of NGINX binary.
+var Binary = "/usr/local/openresty/nginx/sbin/nginx"
 
 const (
 	cfgPath         = "/etc/nginx/nginx.conf"
@@ -122,7 +126,7 @@ func nginxExecCommand(args ...string) *exec.Cmd {
 
 	cmdArgs = append(cmdArgs, "-c", cfgPath)
 	cmdArgs = append(cmdArgs, args...)
-	return exec.Command(DefaultNGINXBinary, cmdArgs...)
+	return exec.Command(Binary, cmdArgs...)
 }
 
 // reloadIfRequired checks if the new configuration file is different from

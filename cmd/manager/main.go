@@ -36,8 +36,8 @@ import (
 func main() {
 	klog.InitFlags(nil)
 
-	flag.StringVar(&nginx.DefaultTemplate, "nginx-tempĺate", nginx.DefaultTemplate, "NGINX template to use.")
-	flag.StringVar(&nginx.DefaultNGINXBinary, "nginx-binary", nginx.DefaultNGINXBinary, "NGINX binary to use.")
+	flag.StringVar(&nginx.Template, "nginx-tempĺate", nginx.Template, "NGINX template to use.")
+	flag.StringVar(&nginx.Binary, "nginx-binary", nginx.Binary, "NGINX binary to use.")
 
 	flag.Set("logtostderr", "true")
 	flag.Parse()

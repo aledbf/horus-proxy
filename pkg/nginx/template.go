@@ -11,7 +11,8 @@ import (
 	"k8s.io/klog"
 )
 
-var DefaultTemplate = "/etc/nginx/template/nginx.tmpl"
+// Template NGINX template useed to render the configuration file
+var Template = "/etc/nginx/template/nginx.tmpl"
 
 type template struct {
 	instance *text_template.Template
