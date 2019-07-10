@@ -2,7 +2,7 @@ pid                                 /tmp/nginx.pid;
 daemon                              off;
 
 worker_processes                    1;
-worker_shutdown_timeout             60s;
+worker_shutdown_timeout             150s;
 
 events {
     multi_accept                    on;
@@ -60,13 +60,10 @@ http {
     reset_timedout_connection       on;
 
     keepalive_timeout               75s;
-    keepalive_requests              300;
+    keepalive_requests              100;
 
     underscores_in_headers          on;
     ignore_invalid_headers          off;
-
-    #include /etc/nginx/mime.types;
-    #default_type text/html;
 
     server_tokens off;
 
@@ -78,7 +75,9 @@ http {
 
     client_max_body_size            0;
     client_body_buffer_size         0;
-    proxy_buffering                 off;
+    #proxy_buffering                 off;
+
+    proxy_next_upstream error timeout http_502 http_503 http_504;
 
     proxy_send_timeout              1800s;
     proxy_read_timeout              1800s;
