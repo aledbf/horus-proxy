@@ -71,7 +71,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Create a new controller
-	c, err := controller.New("proxy-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("proxy", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -195,7 +195,7 @@ func (r *ReconcileTraffic) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	if svc.Spec.Type == corev1.ServiceTypeExternalName {
-		return reconcile.Result{}, fmt.Errorf("Service type ExternalName is not supported")
+		return reconcile.Result{}, fmt.Errorf("service type ExternalName is not supported")
 	}
 
 	labelSelector := r.labelsSelector
@@ -264,7 +264,7 @@ func setupScalingMonitor(config *env.Spec, client kubernetes.Interface, stopCh <
 				}
 			}
 		case <-stopCh:
-			break
+			return
 		}
 	}
 }
@@ -287,7 +287,7 @@ func scaleDeployment(namespace, name string, replicas int32, client kubernetes.I
 		return err
 	}
 
-	for c := time.Tick(70 * time.Second); ; <-c {
+	for c := time.NewTicker(70 * time.Second); ; <-c.C {
 		deployment, err := client.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			return err

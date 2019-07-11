@@ -47,9 +47,9 @@ func (c *Collector) CurrentStats() *Proxy {
 
 // Start ...
 func (c *Collector) Start(stopCh <-chan struct{}) {
-	for t := time.Tick(6 * time.Second); ; {
+	for t := time.NewTicker(6 * time.Second); ; {
 		select {
-		case <-t:
+		case <-t.C:
 			p, err := getMetrics()
 			if err != nil {
 				log.Error(err, "obtaining stats")
@@ -60,7 +60,7 @@ func (c *Collector) Start(stopCh <-chan struct{}) {
 			c.stats = p
 			c.mu.Unlock()
 		case <-stopCh:
-			break
+			return
 		}
 	}
 }

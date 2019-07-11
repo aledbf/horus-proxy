@@ -74,9 +74,9 @@ func (ngx *nginx) Start(stopCh <-chan struct{}) error {
 				log.Error(err, "nginx was terminated")
 				cmd.Process.Release()
 				// healthcheck will start failing
-				break
+				return
 			case <-stopCh:
-				break
+				return
 			}
 		}
 	}(stopCh)

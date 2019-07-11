@@ -46,12 +46,7 @@ func (e *Server) Equal(to *Server) bool {
 		return false
 	}
 
-	match := compareEndpoints(e.Endpoints, to.Endpoints)
-	if !match {
-		return false
-	}
-
-	return true
+	return compareEndpoints(e.Endpoints, to.Endpoints)
 }
 
 var compareServerFunc = func(e1, e2 interface{}) bool {
@@ -80,10 +75,5 @@ type Configuration struct {
 
 // Equal tests for equality between two Server types
 func (c *Configuration) Equal(to *Configuration) bool {
-	match := compareServers(c.Servers, to.Servers)
-	if !match {
-		return false
-	}
-
-	return true
+	return compareServers(c.Servers, to.Servers)
 }
