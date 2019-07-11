@@ -18,7 +18,6 @@ http {
     lua_shared_dict prometheus_metrics 2M;
 
     init_by_lua_block {
-        require("resty.core")
         collectgarbage("collect")
 
         prometheus = require("prometheus").init("prometheus_metrics")
@@ -57,10 +56,8 @@ http {
 
     log_subrequest                  on;
 
-    reset_timedout_connection       on;
-
     keepalive_timeout               75s;
-    keepalive_requests              100;
+    keepalive_requests              50;
 
     underscores_in_headers          on;
     ignore_invalid_headers          off;
@@ -178,8 +175,6 @@ http {
 
         keepalive_timeout 0;
         gzip off;
-
-        #access_log off;
 
         location /configuration {
             content_by_lua_block {
