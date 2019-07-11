@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.37.4 // indirect
+	github.com/appscode/jsonpatch v0.0.0-20190108182946-7c0e3b262f30 // indirect
 	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/gogo/protobuf v1.2.1 // indirect
@@ -28,5 +29,5 @@ require (
 	k8s.io/code-generator v0.0.0-20190612125529-c522cb6c26aa
 	k8s.io/klog v0.3.3
 	k8s.io/kube-openapi v0.0.0-20190418160015-6b3d3b2d5666 // indirect
-	sigs.k8s.io/controller-runtime v0.2.0-beta.1.0.20190611203024-f99287c5b339
+	sigs.k8s.io/controller-runtime v0.2.0-beta.4
 )
